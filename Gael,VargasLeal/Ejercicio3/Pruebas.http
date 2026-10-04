@@ -1,0 +1,44 @@
+### Obtener el listado de materias disponibles
+GET http://localhost:3002/materias
+
+### Obtener todas las calificaciones registradas
+GET http://localhost:3002/calificaciones
+
+### Crear una nueva calificación válida 
+POST http://localhost:3002/calificaciones
+Content-Type: application/json
+
+{
+  "alumno": "Gael Vargas",
+  "materia_id": 1,
+  "nota1": 8.5,
+  "nota2": 9.0,
+  "nota3": 10.0
+}
+
+### Intentar crear un duplicado para el mismo alumno y materia 
+POST http://localhost:3002/calificaciones
+Content-Type: application/json
+
+{
+  "alumno": "gael vargas",
+  "materia_id": 1,
+  "nota1": 6.0,
+  "nota2": 7.0,
+  "nota3": 8.0
+}
+
+### Actualizar una calificación existente
+PUT http://localhost:3002/calificaciones/1
+Content-Type: application/json
+
+{
+  "alumno": "Gael Vargas Leal",
+  "materia_id": 1,
+  "nota1": 9.0,
+  "nota2": 9.5,
+  "nota3": 10.0
+}
+
+### Eliminar una calificación
+DELETE http://localhost:3002/calificaciones/1

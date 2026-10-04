@@ -12,7 +12,7 @@ POST http://localhost:3001/tareas
 Content-Type: application/json
 
 {
-  "nombre": "Estudiar Node.js y Express",
+  "nombre": "Hacer la entrega del trabajo práctico",
   "completada": false
 }
 

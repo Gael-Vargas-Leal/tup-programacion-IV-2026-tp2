@@ -1,0 +1,17 @@
+{
+  "name": "ejercicio3",
+  "version": "1.0.0",
+  "description": "Api para  gestionar calificacion",
+  "license": "ISC",
+  "author": "Gael,Vargas Leal",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "mysql2": "^3.24.5"
+  }
+}

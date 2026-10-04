@@ -6,7 +6,7 @@ const { body, query, param, validationResult } = pkg;
 const app = express();
 app.use(express.json());
 
-// Configuración de la conexión a MySQL con las credenciales del alumno
+
 const dbConfig = {
     host: 'localhost',
     user: 'alumno',
@@ -23,7 +23,7 @@ const validarResultados = (req, res, next) => {
     next();
 };
 
-// 1. OBTENER TAREAS (Con filtro opcional por estado: ?completada=true/false)
+//  OBTENER TAREAS 
 app.get('/tareas', [
     query('completada').optional().isBoolean().withMessage('El filtro de estado debe ser un booleano (true/false)')
 ], validarResultados, async (req, res) => {
@@ -45,7 +45,7 @@ app.get('/tareas', [
     }
 });
 
-// 2. CREAR TAREA (Con validación de unicidad estricta y formato)
+//  CREAR TAREA (
 app.post('/tareas', [
     body('nombre')
         .exists().withMessage('El campo nombre es obligatorio')
@@ -61,7 +61,7 @@ app.post('/tareas', [
         let { nombre, completada } = req.body;
         const connection = await mysql.createConnection(dbConfig);
 
-        // Criterio de comparación consistente: insensible a mayúsculas/minúsculas
+     
         const [existing] = await connection.execute(
             'SELECT * FROM tareas WHERE LOWER(nombre) = LOWER(?)', 
             [nombre]
@@ -91,7 +91,7 @@ app.post('/tareas', [
     }
 });
 
-// 3. ACTUALIZAR TAREA (PUT)
+//  ACTUALIZAR TAREA 
 app.put('/tareas/:id', [
     param('id').isInt({ gt: 0 }).withMessage('El ID debe ser un número entero positivo'),
     body('nombre')
@@ -109,7 +109,7 @@ app.put('/tareas/:id', [
 
         const connection = await mysql.createConnection(dbConfig);
 
-        // Verificar unicidad excluyendo el propio ID que estamos editando
+        
         const [existing] = await connection.execute(
             'SELECT * FROM tareas WHERE LOWER(nombre) = LOWER(?) AND id != ?', 
             [nombre, id]
@@ -137,7 +137,7 @@ app.put('/tareas/:id', [
     }
 });
 
-// 4. ELIMINAR TAREA (DELETE)
+//  ELIMINAR TAREA 
 app.delete('/tareas/:id', [
     param('id').isInt({ gt: 0 }).withMessage('El ID debe ser válido')
 ], validarResultados, async (req, res) => {
@@ -157,7 +157,7 @@ app.delete('/tareas/:id', [
     }
 });
 
-// Configurado en el puerto 3001 para no chocar con el Ejercicio 1
+
 const PORT = 3001;
 app.listen(PORT, () => {
     console.log(`Servidor de Tareas corriendo in http://localhost:${PORT}`);
