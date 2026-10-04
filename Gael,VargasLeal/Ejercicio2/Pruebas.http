@@ -1,0 +1,38 @@
+###  Obtener todas las tareas
+GET http://localhost:3001/tareas
+
+###  Filtrar tareas pendientes 
+GET http://localhost:3001/tareas?completada=false
+
+###  Filtrar tareas completadas 
+GET http://localhost:3001/tareas?completada=true
+
+###  Crear una nueva tarea válida
+POST http://localhost:3001/tareas
+Content-Type: application/json
+
+{
+  "nombre": "Estudiar Node.js y Express",
+  "completada": false
+}
+
+###  Intentar crear tarea duplicada 
+POST http://localhost:3001/tareas
+Content-Type: application/json
+
+{
+  "nombre": "estudiar node.js y express",
+  "completada": false
+}
+
+###  Actualizar una tarea  anteriormente creada 
+PUT http://localhost:3001/tareas/1
+Content-Type: application/json
+
+{
+  "nombre": "Estudiar Node.js, Express y MySQL avanzado",
+  "completada": true
+}
+
+###  Eliminar una tarea
+DELETE http://localhost:3001/tareas/1
