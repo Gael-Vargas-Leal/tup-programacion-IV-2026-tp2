@@ -1,0 +1,35 @@
+### 1. Guarda correctamente los rectángulos
+POST http://localhost:3000/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 5,
+    "lado_b": 10
+}
+
+### 2. Prueba la validación del BODY
+POST http://localhost:3000/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": "cinco",
+    "lado_b": 10
+}
+
+### 3. Se fija todos los rectángulos que se guardó
+GET http://localhost:3000/rectangulos
+
+### 4. Busca un rectángulo específico según el id que le pidamos
+GET http://localhost:3000/rectangulos/1
+
+### 5. Modifica un rectángulo anteriormente ya creado
+PUT http://localhost:3000/rectangulos/1
+Content-Type: application/json
+
+{
+    "lado_a": 20,
+    "lado_b": 30
+}
+
+### 6. Ve todos los rectángulos creados para ver si se actualizó lo que se cambió
+GET http://localhost:3000/rectangulos
