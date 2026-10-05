@@ -1,11 +1,64 @@
-### Obtener el listado de materias disponibles
-GET http://localhost:3002/materias
+@host = http://localhost:3002
 
-### Obtener todas las calificaciones registradas
-GET http://localhost:3002/calificaciones
+### 1. Listar materias disponibles
+GET {{host}}/materias
 
-### Crear una nueva calificación válida 
-POST http://localhost:3002/calificaciones
+### a. Crear una materia  201
+POST {{host}}/materias
+Content-Type: application/json
+
+{ "nombre": "Redes de Datos" }
+
+### b. Materia repetida, con otras mayúsculas y espacios  409
+POST {{host}}/materias
+Content-Type: application/json
+
+{ "nombre": "  redes   DE datos " }
+
+### 1c. Materia sin nombre -> 400
+POST {{host}}/materias
+Content-Type: application/json
+
+{ }
+
+### 1. Materia con nombre vacío  400
+POST {{host}}/materias
+Content-Type: application/json
+
+{ "nombre": "     " }
+
+### 1. Modificar una materia ajustar el id a uno existente -> 200
+PUT {{host}}/materias/1
+Content-Type: application/json
+
+{ "nombre": "Programación I" }
+
+### 1. Modificar usando el nombre de otra materia  409
+PUT {{host}}/materias/1
+Content-Type: application/json
+
+{ "nombre": "base de datos" }
+
+### 1. Modificar una materia inexistente  404
+PUT {{host}}/materias/9999
+Content-Type: application/json
+
+{ "nombre": "Inexistente" }
+
+### 1h. Modificar con id inválido 400
+PUT {{host}}/materias/abc
+Content-Type: application/json
+
+{ "nombre": "Inexistente" }
+
+### 1i. Eliminar una materia (borra también sus calificaciones; ajustar el id  200
+DELETE {{host}}/materias/3
+
+### 1j. Eliminar una materia inexistente  404
+DELETE {{host}}/materias/9999
+
+### 2. Crear una calificación válida  201
+POST {{host}}/calificaciones
 Content-Type: application/json
 
 {
@@ -16,20 +69,107 @@ Content-Type: application/json
   "nota3": 10.0
 }
 
-### Intentar crear un duplicado para el mismo alumno y materia 
-POST http://localhost:3002/calificaciones
+### 3. Crear un segundo registro se usa en la prueba 19 201
+POST {{host}}/calificaciones
 Content-Type: application/json
 
 {
-  "alumno": "gael vargas",
+  "alumno": "Ana Pérez",
+  "materia_id": 1,
+  "nota1": 7,
+  "nota2": 8,
+  "nota3": 6.5
+}
+
+### 4. Mismo alumno en otra materia permitido 201
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{
+  "alumno": "Gael Vargas",
+  "materia_id": 2,
+  "nota1": 5,
+  "nota2": 6,
+  "nota3": 7
+}
+
+### 5. Duplicado: mismo alumno y materia, con otras mayúsculas y espacios 409
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{
+  "alumno": "  gael   VARGAS ",
   "materia_id": 1,
   "nota1": 6.0,
   "nota2": 7.0,
   "nota3": 8.0
 }
 
-### Actualizar una calificación existente
-PUT http://localhost:3002/calificaciones/1
+### 6. Sin nombre de alumno  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "materia_id": 1, "nota1": 6, "nota2": 7, "nota3": 8 }
+
+### 7. Nombre vacío o solo espacios  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "     ", "materia_id": 1, "nota1": 6, "nota2": 7, "nota3": 8 }
+
+### 8. Nombre con números o símbolos  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Juan123 #", "materia_id": 1, "nota1": 6, "nota2": 7, "nota3": 8 }
+
+### 9. Materia inexistente  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": 9999, "nota1": 6, "nota2": 7, "nota3": 8 }
+
+### 10. materia_id inválido  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": "abc", "nota1": 6, "nota2": 7, "nota3": 8 }
+
+### 11. Nota fuera de la escala 11 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": 1, "nota1": 11, "nota2": 7, "nota3": 8 }
+
+### 12. Nota fuera de la escala 0  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": 1, "nota1": 0, "nota2": 7, "nota3": 8 }
+
+### 13. Nota que no es número  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": 1, "nota1": "ocho", "nota2": 7, "nota3": 8 }
+
+### 14. Falta una de las tres notas  400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Lucía Gómez", "materia_id": 1, "nota1": 6, "nota2": 7 }
+
+### 15. Listar todas las calificaciones
+GET {{host}}/calificaciones
+
+### 16. Filtrar por materia
+GET {{host}}/calificaciones?materia_id=1
+
+### 17. Filtro inválido -> 400
+GET {{host}}/calificaciones?materia_id=abc
+
+### 18. Modificar (ajustar el id a uno existente)  200
+PUT {{host}}/calificaciones/1
 Content-Type: application/json
 
 {
@@ -40,5 +180,35 @@ Content-Type: application/json
   "nota3": 10.0
 }
 
-### Eliminar una calificación
-DELETE http://localhost:3002/calificaciones/1
+### 19. Modificar y chocar con el registro de otro alumno en la misma materia  409
+PUT {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "alumno": "ana pérez", "materia_id": 1, "nota1": 9, "nota2": 9, "nota3": 9 }
+
+### 20. Modificar con una materia inexistente  400
+PUT {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "alumno": "Gael Vargas Leal", "materia_id": 9999, "nota1": 9, "nota2": 9, "nota3": 9 }
+
+### 21. Modificar un registro inexistente  404
+PUT {{host}}/calificaciones/9999
+Content-Type: application/json
+
+{ "alumno": "Gael Vargas", "materia_id": 1, "nota1": 9, "nota2": 9, "nota3": 9 }
+
+### 22. Modificar con id inválido  400
+PUT {{host}}/calificaciones/abc
+Content-Type: application/json
+
+{ "alumno": "Gael Vargas", "materia_id": 1, "nota1": 9, "nota2": 9, "nota3": 9 }
+
+### 23. Eliminar ajustar el id a uno existente 200
+DELETE {{host}}/calificaciones/1
+
+### 24. Eliminar inexistente  404
+DELETE {{host}}/calificaciones/9999
+
+### 25. Eliminar con id inválido  400
+DELETE {{host}}/calificaciones/0

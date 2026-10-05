@@ -1,6 +1,7 @@
 import express from 'express';
 import mysql from 'mysql2/promise';
-import { body, param, query, validationResult } from 'express-validator';
+import pkg from 'express-validator';
+const { body, param, query, validationResult } = pkg;
 
 const app = express();
 app.use(express.json());
@@ -8,12 +9,22 @@ app.use(express.json());
 
 const dbConfig = {
   host: 'localhost',
-  user: 'root',       
-  password: '',  
+  user: 'alumno',
+  password: '12345',
   database: 'api_calificaciones'
 };
 
-const PORT = 3002; 
+const PORT = 3002;
+
+// Escala de calificaciones adoptada: números de 1 a 10, con hasta 2 decimales.
+const NOTA_MINIMA = 1;
+const NOTA_MAXIMA = 10;
+
+// Largo máximo del nombre del alumno (debe coincidir con el largo de la columna alumno)
+const ALUMNO_MAX = 150;
+
+// Largo máximo del nombre de la materia (columna nombre de la tabla materias)
+const MATERIA_MAX = 100;
 
 // Middleware para manejar errores de validación de express-validator
 const validarCampos = (req, res, next) => {
@@ -24,163 +35,292 @@ const validarCampos = (req, res, next) => {
   next();
 };
 
+// Criterio para comparar alumnos: se quitan los espacios del inicio y del final, los espacios
+// repetidos se reducen a uno y no se distingue entre mayúsculas y minúsculas (LOWER en la consulta).
+const normalizarNombre = (valor) => valor.trim().replace(/\s+/g, ' ');
+
+const validarAlumno = body('alumno')
+  .exists({ values: 'null' }).withMessage('El nombre del alumno es obligatorio').bail()
+  .isString().withMessage('El nombre del alumno debe ser texto').bail()
+  .customSanitizer(normalizarNombre)
+  .notEmpty().withMessage('El nombre del alumno no puede estar vacío').bail()
+  .isLength({ max: ALUMNO_MAX }).withMessage(`El nombre del alumno no puede superar los ${ALUMNO_MAX} caracteres`).bail()
+  .matches(/^\p{L}[\p{L}\s'.-]*$/u).withMessage('El nombre del alumno solo puede contener letras, espacios, apóstrofes, puntos y guiones');
+
+const validarNombreMateria = body('nombre')
+  .exists({ values: 'null' }).withMessage('El nombre de la materia es obligatorio').bail()
+  .isString().withMessage('El nombre de la materia debe ser texto').bail()
+  .customSanitizer(normalizarNombre)
+  .notEmpty().withMessage('El nombre de la materia no puede estar vacío').bail()
+  .isLength({ max: MATERIA_MAX }).withMessage(`El nombre de la materia no puede superar los ${MATERIA_MAX} caracteres`);
+
+const validarMateriaId = body('materia_id')
+  .exists({ values: 'null' }).withMessage('El ID de la materia es obligatorio').bail()
+  .isInt({ min: 1 }).withMessage('El ID de la materia debe ser un número entero positivo')
+  .toInt();
+
+const validarNota = (campo) => body(campo)
+  .exists({ values: 'null' }).withMessage(`${campo} es obligatoria`).bail()
+  .custom((v) => typeof v === 'number' && Number.isFinite(v)).withMessage(`${campo} debe ser un número`).bail()
+  .isFloat({ min: NOTA_MINIMA, max: NOTA_MAXIMA }).withMessage(`${campo} debe estar entre ${NOTA_MINIMA} y ${NOTA_MAXIMA}`).bail()
+  .custom((v) => Math.round(v * 100) / 100 === v).withMessage(`${campo} admite hasta 2 decimales`);
+
+const validarId = param('id').isInt({ min: 1 }).withMessage('El ID de la ruta debe ser un número entero positivo');
+
+const validarCuerpo = [
+  validarAlumno,
+  validarMateriaId,
+  validarNota('nota1'),
+  validarNota('nota2'),
+  validarNota('nota3')
+];
+
+const responderError = (res, error) => {
+  if (error.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({ error: 'Ya existe un registro de calificaciones para este alumno en esta materia' });
+  }
+  console.error(error);
+  res.status(500).json({ error: 'Error interno del servidor' });
+};
+
 
 // GET: Listar todas las materias
 app.get('/materias', async (req, res) => {
+  let connection;
   try {
-    const connection = await mysql.createConnection(dbConfig);
+    connection = await mysql.createConnection(dbConfig);
     const [rows] = await connection.execute('SELECT * FROM materias');
-    await connection.end();
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener las materias', detalle: error.message });
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
   }
 });
 
 
-
-// GET: Listar calificaciones (con opción de filtrar por materia_id o alumno)
-app.get('/calificaciones', [
-  query('materia_id').optional().isInt().withEl ('El ID de materia debe ser un número entero'),
+// POST: Crear una materia
+app.post('/materias', [
+  validarNombreMateria,
   validarCampos
 ], async (req, res) => {
+  let connection;
+  try {
+    const { nombre } = req.body;
+    connection = await mysql.createConnection(dbConfig);
+
+    const [existente] = await connection.execute(
+      'SELECT id FROM materias WHERE LOWER(nombre) = LOWER(?)',
+      [nombre]
+    );
+    if (existente.length > 0) {
+      return res.status(409).json({ error: 'Ya existe una materia con ese nombre' });
+    }
+
+    const [result] = await connection.execute('INSERT INTO materias (nombre) VALUES (?)', [nombre]);
+    res.status(201).json({ mensaje: 'Materia creada exitosamente', id: result.insertId, nombre });
+  } catch (error) {
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
+  }
+});
+
+// PUT: Modificar una materia
+app.put('/materias/:id', [
+  validarId,
+  validarNombreMateria,
+  validarCampos
+], async (req, res) => {
+  let connection;
+  try {
+    const id = Number(req.params.id);
+    const { nombre } = req.body;
+    connection = await mysql.createConnection(dbConfig);
+
+    const [actual] = await connection.execute('SELECT id FROM materias WHERE id = ?', [id]);
+    if (actual.length === 0) {
+      return res.status(404).json({ error: 'Materia no encontrada' });
+    }
+
+    const [duplicada] = await connection.execute(
+      'SELECT id FROM materias WHERE LOWER(nombre) = LOWER(?) AND id != ?',
+      [nombre, id]
+    );
+    if (duplicada.length > 0) {
+      return res.status(409).json({ error: 'Ya existe otra materia con ese nombre' });
+    }
+
+    await connection.execute('UPDATE materias SET nombre = ? WHERE id = ?', [nombre, id]);
+    res.json({ mensaje: 'Materia actualizada correctamente', id, nombre });
+  } catch (error) {
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
+  }
+});
+
+// DELETE: Eliminar una materia (por la clave foránea con ON DELETE CASCADE,
+// también se eliminan las calificaciones registradas en esa materia)
+app.delete('/materias/:id', [
+  validarId,
+  validarCampos
+], async (req, res) => {
+  let connection;
+  try {
+    const id = Number(req.params.id);
+    connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.execute('DELETE FROM materias WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Materia no encontrada' });
+    }
+
+    res.json({ mensaje: 'Materia eliminada correctamente, junto con sus calificaciones' });
+  } catch (error) {
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
+  }
+});
+
+// GET: Listar calificaciones (con opción de filtrar por materia_id)
+app.get('/calificaciones', [
+  query('materia_id').optional()
+    .custom((valor) => typeof valor === 'string' && /^[1-9]\d*$/.test(valor))
+    .withMessage('El ID de materia debe ser un número entero positivo'),
+  validarCampos
+], async (req, res) => {
+  let connection;
   try {
     const { materia_id } = req.query;
-    const connection = await mysql.createConnection(dbConfig);
-    
+    connection = await mysql.createConnection(dbConfig);
+
     let sql = `
-      SELECT c.id, c.alumno, m.id AS materia_id, m.nombre AS materia, c.nota1, c.nota2, c.nota3 
+      SELECT c.id, c.alumno, m.id AS materia_id, m.nombre AS materia, c.nota1, c.nota2, c.nota3
       FROM calificaciones c
       JOIN materias m ON c.materia_id = m.id
     `;
     let params = [];
 
-    if (materia_id) {
+    if (materia_id !== undefined) {
       sql += ' WHERE c.materia_id = ?';
-      params.push(materia_id);
+      params.push(Number(materia_id));
     }
 
-    const [rows] = await connection.execute(sql, params);
-    await connection.end();
+    const [rows] = await connection.execute(sql + ' ORDER BY c.id', params);
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener las calificaciones', detalle: error.message });
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
   }
 });
 
 // POST: Crear un registro de calificaciones
 app.post('/calificaciones', [
-  body('alumno').exists().notEmpty().isString().withEl('El nombre del alumno es obligatorio y debe ser texto'),
-  body('materia_id').exists().isInt().withEl('El ID de la materia es obligatorio y debe ser un número entero'),
-  body('nota1').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 1 debe ser un número entre 1 y 10'),
-  body('nota2').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 2 debe ser un número entre 1 y 10'),
-  body('nota3').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 3 debe ser un número entre 1 y 10'),
+  ...validarCuerpo,
   validarCampos
 ], async (req, res) => {
+  let connection;
   try {
     const { alumno, materia_id, nota1, nota2, nota3 } = req.body;
-    const connection = await mysql.createConnection(dbConfig);
+    connection = await mysql.createConnection(dbConfig);
 
-    //Verificar que la materia exista
-    const [materias] = await connection.execute('SELECT * FROM materias WHERE id = ?', [materia_id]);
+    // 1. Verificar que la materia exista
+    const [materias] = await connection.execute('SELECT id FROM materias WHERE id = ?', [materia_id]);
     if (materias.length === 0) {
-      await connection.end();
-      return res.status(404).json({ error: 'La materia especificada no existe en el sistema' });
+      return res.status(400).json({ error: 'La materia especificada no existe en el sistema' });
     }
 
-    //  Verificar regla de unicidad 
+    // 2. Verificar regla de unicidad (alumno + materia)
     const [existente] = await connection.execute(
-      'SELECT * FROM calificaciones WHERE LOWER(alumno) = LOWER(?) AND materia_id = ?',
-      [alumno.trim(), materia_id]
+      'SELECT id FROM calificaciones WHERE LOWER(alumno) = LOWER(?) AND materia_id = ?',
+      [alumno, materia_id]
     );
 
     if (existente.length > 0) {
-      await connection.end();
-      return res.status(400).json({ error: 'Ya existe un registro de calificaciones para este alumno en esta materia' });
+      return res.status(409).json({ error: 'Ya existe un registro de calificaciones para este alumno en esta materia' });
     }
 
     // 3. Insertar el registro
     const [result] = await connection.execute(
       'INSERT INTO calificaciones (alumno, materia_id, nota1, nota2, nota3) VALUES (?, ?, ?, ?, ?)',
-      [alumno.trim(), materia_id, nota1, nota2, nota3]
+      [alumno, materia_id, nota1, nota2, nota3]
     );
 
-    await connection.end();
-    res.status(201).json({ 
-      mensaje: 'Calificación creada exitosamente', 
+    res.status(201).json({
+      mensaje: 'Calificación creada exitosamente',
       id: result.insertId,
       alumno,
       materia_id,
       nota1, nota2, nota3
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al crear la calificación', detalle: error.message });
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
   }
 });
 
-//  Modificar un registro de calificaciones
+// PUT: Modificar un registro de calificaciones
 app.put('/calificaciones/:id', [
-  param('id').isInt().withEl('El ID de la ruta debe ser un número entero'),
-  body('alumno').exists().notEmpty().isString().withEl('El nombre del alumno es obligatorio'),
-  body('materia_id').exists().isInt().withEl('El ID de la materia debe ser un número entero'),
-  body('nota1').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 1 debe estar entre 1 y 10'),
-  body('nota2').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 2 debe estar entre 1 y 10'),
-  body('nota3').exists().isFloat({ min: 1, max: 10 }).withEl('La nota 3 debe estar entre 1 y 10'),
+  validarId,
+  ...validarCuerpo,
   validarCampos
 ], async (req, res) => {
+  let connection;
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
     const { alumno, materia_id, nota1, nota2, nota3 } = req.body;
-    const connection = await mysql.createConnection(dbConfig);
+    connection = await mysql.createConnection(dbConfig);
 
-
-    const [actual] = await connection.execute('SELECT * FROM calificaciones WHERE id = ?', [id]);
+    // 1. Verificar que el registro exista
+    const [actual] = await connection.execute('SELECT id FROM calificaciones WHERE id = ?', [id]);
     if (actual.length === 0) {
-      await connection.end();
       return res.status(404).json({ error: 'El registro de calificación no fue encontrado' });
     }
 
-    // Verificar si la materia exista
-    const [materias] = await connection.execute('SELECT * FROM materias WHERE id = ?', [materia_id]);
+    // 2. Verificar que la materia exista
+    const [materias] = await connection.execute('SELECT id FROM materias WHERE id = ?', [materia_id]);
     if (materias.length === 0) {
-      await connection.end();
-      return res.status(404).json({ error: 'La materia especificada no existe' });
+      return res.status(400).json({ error: 'La materia especificada no existe' });
     }
 
-    // Verificar regla de unicidad excluyendo el registro actual
+    // 3. Verificar regla de unicidad excluyendo el registro actual
     const [duplicado] = await connection.execute(
-      'SELECT * FROM calificaciones WHERE LOWER(alumno) = LOWER(?) AND materia_id = ? AND id != ?',
-      [alumno.trim(), materia_id, id]
+      'SELECT id FROM calificaciones WHERE LOWER(alumno) = LOWER(?) AND materia_id = ? AND id != ?',
+      [alumno, materia_id, id]
     );
 
     if (duplicado.length > 0) {
-      await connection.end();
-      return res.status(400).json({ error: 'Ya existe otro registro para este alumno en la misma materia' });
+      return res.status(409).json({ error: 'Ya existe otro registro para este alumno en la misma materia' });
     }
 
     await connection.execute(
       'UPDATE calificaciones SET alumno = ?, materia_id = ?, nota1 = ?, nota2 = ?, nota3 = ? WHERE id = ?',
-      [alumno.trim(), materia_id, nota1, nota2, nota3, id]
+      [alumno, materia_id, nota1, nota2, nota3, id]
     );
 
-    await connection.end();
-    res.json({ mensaje: 'Calificación actualizada correctamente' });
+    res.json({ mensaje: 'Calificación actualizada correctamente', id, alumno, materia_id, nota1, nota2, nota3 });
   } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar', detalle: error.message });
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
   }
 });
 
-//  Eliminar un registro
+// DELETE: Eliminar un registro
 app.delete('/calificaciones/:id', [
-  param('id').isInt().withEl('El ID debe ser un número entero'),
+  validarId,
   validarCampos
 ], async (req, res) => {
+  let connection;
   try {
-    const { id } = req.params;
-    const connection = await mysql.createConnection(dbConfig);
-    
+    const id = Number(req.params.id);
+    connection = await mysql.createConnection(dbConfig);
+
     const [result] = await connection.execute('DELETE FROM calificaciones WHERE id = ?', [id]);
-    await connection.end();
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Calificación no encontrada' });
@@ -188,7 +328,9 @@ app.delete('/calificaciones/:id', [
 
     res.json({ mensaje: 'Calificación eliminada correctamente' });
   } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar', detalle: error.message });
+    responderError(res, error);
+  } finally {
+    if (connection) await connection.end();
   }
 });
 
