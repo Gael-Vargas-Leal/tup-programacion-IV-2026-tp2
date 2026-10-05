@@ -1,38 +1,103 @@
-###  Obtener todas las tareas
-GET http://localhost:3001/tareas
+@host = http://localhost:3001
 
-###  Filtrar tareas pendientes 
-GET http://localhost:3001/tareas?completada=false
-
-###  Filtrar tareas completadas 
-GET http://localhost:3001/tareas?completada=true
-
-###  Crear una nueva tarea válida
-POST http://localhost:3001/tareas
+### 1. Crear tarea  201
+POST {{host}}/tareas
 Content-Type: application/json
 
-{
-  "nombre": "Hacer la entrega del trabajo práctico",
-  "completada": false
-}
+{ "nombre": "Estudiar Node.js y Express", "completada": false }
 
-###  Intentar crear tarea duplicada 
-POST http://localhost:3001/tareas
+### 2. Crear sin indicar completada  201
+POST {{host}}/tareas
 Content-Type: application/json
 
-{
-  "nombre": "estudiar node.js y express",
-  "completada": false
-}
+{ "nombre": "Entregar el trabajo práctico" }
 
-###  Actualizar una tarea  anteriormente creada 
-PUT http://localhost:3001/tareas/1
+### 3. Duplicado exacto  409
+POST {{host}}/tareas
 Content-Type: application/json
 
-{
-  "nombre": "Estudiar Node.js, Express y MySQL avanzado",
-  "completada": true
-}
+{ "nombre": "Estudiar Node.js y Express" }
 
-###  Eliminar una tarea
-DELETE http://localhost:3001/tareas/1
+### 4. Duplicado con otras mayúsculas y espacios de más 409
+POST {{host}}/tareas
+Content-Type: application/json
+
+{ "nombre": "   estudiar   NODE.js   y express  " }
+
+### 5. Sin nombre - 400
+POST {{host}}/tareas
+Content-Type: application/json
+
+{ "completada": true }
+
+### 6. Nombre vacío o solo espacios 400
+POST {{host}}/tareas
+Content-Type: application/json
+
+{ "nombre": "     " }
+
+### 7. Nombre que no es texto  400
+POST {{host}}/tareas
+Content-Type: application/json
+
+{ "nombre": 123 }
+
+### 8. completada como texto  400
+POST {{host}}/tareas
+Content-Type: application/json
+
+{ "nombre": "Tarea con estado inválido", "completada": "true" }
+
+### 9. Listar todas
+GET {{host}}/tareas
+
+### 10. Filtrar completadas
+GET {{host}}/tareas?completada=true
+
+### 11. Filtrar pendientes
+GET {{host}}/tareas?completada=false
+
+### 12. Filtro inválido  400
+GET {{host}}/tareas?completada=1
+
+### 13. Filtro inválido  400
+GET {{host}}/tareas?completada=abc
+
+### 14. Modificar ajustar el id a uno existente 200
+PUT {{host}}/tareas/1
+Content-Type: application/json
+
+{ "nombre": "Estudiar Node.js, Express y MySQL", "completada": true }
+
+### 15. Modificar usando el nombre de otra tarea  409
+PUT {{host}}/tareas/1
+Content-Type: application/json
+
+{ "nombre": "entregar el trabajo práctico", "completada": true }
+
+### 16. Modificar sin completada  400
+PUT {{host}}/tareas/1
+Content-Type: application/json
+
+{ "nombre": "Estudiar Node.js" }
+
+### 17. Modificar con id inválido  400
+PUT {{host}}/tareas/abc
+Content-Type: application/json
+
+{ "nombre": "Estudiar Node.js", "completada": true }
+
+### 18. Modificar tarea inexistente  404
+PUT {{host}}/tareas/9999
+Content-Type: application/json
+
+{ "nombre": "Tarea inexistente", "completada": false }
+
+### 19. Eliminar ajustar el id a uno existente  200
+DELETE {{host}}/tareas/1
+
+### 20. Eliminar inexistente  404
+DELETE {{host}}/tareas/9999
+
+### 21. Eliminar con id inválido  400
+DELETE {{host}}/tareas/0
