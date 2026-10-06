@@ -1,0 +1,151 @@
+@host = http://localhost:3000
+
+### 1. Guarda correctamente un rectángulo -> 201 (perimetro 30, superficie 50)
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 5,
+    "lado_b": 10
+}
+
+### 2. Guarda un rectángulo con decimales -> 201 (perimetro 14.5, superficie 11.88)
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 2.5,
+    "lado_b": 4.75
+}
+
+### 3. Valida el BODY: falta lado_b -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 5
+}
+
+### 4. Valida el BODY: lado igual a cero -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 0,
+    "lado_b": 10
+}
+
+### 5. Valida el BODY: lado negativo -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": -3,
+    "lado_b": 10
+}
+
+### 6. Valida el BODY: lado que no es número -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": "cinco",
+    "lado_b": 10
+}
+
+### 7. Valida el BODY: número enviado como texto -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": "5",
+    "lado_b": 10
+}
+
+### 8. Valida el BODY: más de 2 decimales -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 1.234,
+    "lado_b": 10
+}
+
+### 9. Valida el BODY: lado mayor al máximo (9999) -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 10000,
+    "lado_b": 10
+}
+
+### 10. El cliente no puede enviar perimetro ni superficie -> 400
+POST {{host}}/rectangulos
+Content-Type: application/json
+
+{
+    "lado_a": 5,
+    "lado_b": 10,
+    "perimetro": 1,
+    "superficie": 1
+}
+
+### 11. Se fija todos los rectángulos que se guardaron
+GET {{host}}/rectangulos
+
+### 12. Busca un rectángulo específico según el id (ajustar a uno existente) -> 200
+GET {{host}}/rectangulos/1
+
+### 13. Busca un rectángulo inexistente -> 404
+GET {{host}}/rectangulos/9999
+
+### 14. Valida el PARAM: id inválido -> 400
+GET {{host}}/rectangulos/abc
+
+### 15. Modifica un rectángulo ya creado (se recalculan perimetro y superficie) -> 200
+PUT {{host}}/rectangulos/1
+Content-Type: application/json
+
+{
+    "lado_a": 20,
+    "lado_b": 30
+}
+
+### 16. Modifica un rectángulo inexistente -> 404
+PUT {{host}}/rectangulos/9999
+Content-Type: application/json
+
+{
+    "lado_a": 20,
+    "lado_b": 30
+}
+
+### 17. Modifica con datos inválidos -> 400
+PUT {{host}}/rectangulos/1
+Content-Type: application/json
+
+{
+    "lado_a": -1
+}
+
+### 18. Modifica con id inválido -> 400
+PUT {{host}}/rectangulos/abc
+Content-Type: application/json
+
+{
+    "lado_a": 20,
+    "lado_b": 30
+}
+
+### 19. Ve todos los rectángulos para comprobar que se actualizó lo que se cambió
+GET {{host}}/rectangulos
+
+### 20. Elimina un rectángulo (ajustar a uno existente) -> 204
+DELETE {{host}}/rectangulos/1
+
+### 21. Elimina un rectángulo inexistente -> 404
+DELETE {{host}}/rectangulos/9999
+
+### 22. Elimina con id inválido -> 400
+DELETE {{host}}/rectangulos/0
