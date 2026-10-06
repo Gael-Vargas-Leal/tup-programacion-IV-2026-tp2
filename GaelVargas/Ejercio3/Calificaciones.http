@@ -1,0 +1,197 @@
+# Pruebas del Ejercicio 3 (extensión "REST Client" de VS Code)
+# Requiere haber ejecutado database.sql (crea las materias 1 a 4 de ejemplo).
+@host = http://localhost:3000
+
+### ================= MATERIAS =================
+
+### Crear materia
+POST {{host}}/materias
+Content-Type: application/json
+
+{ "nombre": "Sistemas Operativos" }
+
+### Materia duplicada (otras mayúsculas / espacios) -> 409
+POST {{host}}/materias
+Content-Type: application/json
+
+{ "nombre": "  base   de DATOS " }
+
+### Materia sin nombre -> 400
+POST {{host}}/materias
+Content-Type: application/json
+
+{}
+
+### Listar materias
+GET {{host}}/materias
+
+### Una materia por id
+GET {{host}}/materias/1
+
+### Materia inexistente -> 404
+GET {{host}}/materias/9999
+
+### Modificar materia
+PUT {{host}}/materias/4
+Content-Type: application/json
+
+{ "nombre": "Matemática Discreta" }
+
+### Eliminar materia sin calificaciones -> 204 (usar un id sin calificaciones)
+DELETE {{host}}/materias/5
+
+### Eliminar materia con calificaciones -> 409
+DELETE {{host}}/materias/1
+
+### ================= CALIFICACIONES =================
+
+### Crear calificación
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "María José Pérez", "materia_id": 1, "notas": [7, 8.5, 9] }
+
+### Misma combinación alumno + materia (con otras mayúsculas y espacios) -> 409
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "  maria jose   PEREZ ", "materia_id": 1, "notas": [5, 5, 5] }
+
+### Mismo alumno en otra materia -> 201
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "María José Pérez", "materia_id": 2, "notas": [10, 9.75, 8] }
+
+### Otro alumno en la misma materia -> 201
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Juan O'Connor-Gómez", "materia_id": 1, "notas": [4, 6, 7.25] }
+
+### Materia inexistente -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 9999, "notas": [7, 8, 9] }
+
+### Sin alumno -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "materia_id": 1, "notas": [7, 8, 9] }
+
+### Alumno con números -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana123", "materia_id": 1, "notas": [7, 8, 9] }
+
+### Solo dos notas -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 1, "notas": [7, 8] }
+
+### Cuatro notas -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 1, "notas": [7, 8, 9, 10] }
+
+### Nota como texto -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 1, "notas": [7, "8", 9] }
+
+### Nota fuera de la escala (0 a 10) -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 1, "notas": [7, 11, 9] }
+
+### Nota con más de 2 decimales -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "Ana Gómez", "materia_id": 1, "notas": [7.125, 8, 9] }
+
+### Varios errores a la vez -> 400
+POST {{host}}/calificaciones
+Content-Type: application/json
+
+{ "alumno": "", "materia_id": "uno", "notas": "789" }
+
+### Todas las calificaciones
+GET {{host}}/calificaciones
+
+### Filtrar por alumno
+GET {{host}}/calificaciones?alumno=maria jose perez
+
+### Filtrar por materia
+GET {{host}}/calificaciones?materia_id=1
+
+### Filtrar por alumno y materia
+GET {{host}}/calificaciones?alumno=Juan O'Connor-Gómez&materia_id=1
+
+### Filtro inválido -> 400
+GET {{host}}/calificaciones?materia_id=abc
+
+### Una calificación por id
+GET {{host}}/calificaciones/1
+
+### Calificación inexistente -> 404
+GET {{host}}/calificaciones/9999
+
+### Reemplazo completo (PUT)
+PUT {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "alumno": "María José Pérez", "materia_id": 1, "notas": [8, 8.5, 9.5] }
+
+### PUT que choca con otra combinación alumno + materia -> 409
+# (el registro 1 pasaría a la materia 2, donde ya existe esa alumna)
+PUT {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "alumno": "María José Pérez", "materia_id": 2, "notas": [8, 8, 8] }
+
+### Modificar solo las notas (PATCH)
+PATCH {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "notas": [9, 9, 10] }
+
+### PATCH que choca con otra combinación -> 409
+PATCH {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "materia_id": 2 }
+
+### PATCH a una materia inexistente -> 400
+PATCH {{host}}/calificaciones/1
+Content-Type: application/json
+
+{ "materia_id": 9999 }
+
+### PATCH sin campos -> 400
+PATCH {{host}}/calificaciones/1
+Content-Type: application/json
+
+{}
+
+### PATCH sobre id inexistente -> 404
+PATCH {{host}}/calificaciones/9999
+Content-Type: application/json
+
+{ "notas": [7, 7, 7] }
+
+### Eliminar una calificación -> 204
+DELETE {{host}}/calificaciones/3
+
+### Eliminar una calificación inexistente -> 404
+DELETE {{host}}/calificaciones/9999
+
+### Id inválido -> 400
+DELETE {{host}}/calificaciones/0
